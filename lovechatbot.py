@@ -1,7 +1,9 @@
+import os
+import random
 import streamlit as st
 from google import genai
-import random
-#python -m streamlit run lovechatbot.py
+
+# python -m streamlit run lovechatbot.py
 # ---------------- CONFIG ---------------- #
 
 st.set_page_config(
@@ -9,10 +11,10 @@ st.set_page_config(
     page_icon="❤️",
     layout="wide"
 )
-genai.configure(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
 
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+MODEL_NAME = "gemini-2.0-flash"  # double-check this against Google's current model list
 
 sys_prompt = """
 You are LoveBot ❤️, an AI Relationship Coach.
@@ -39,10 +41,19 @@ Rules:
 • Give practical advice.
 """
 
-# gemini = genai.GenerativeModel(
-#     model_name="models/gemini-2.0-flash",
-#     system_instruction=sys_prompt)
- 
+
+def ask_lovebot(user_prompt: str) -> str:
+    """Call Gemini with the system prompt + user request, with basic error handling."""
+    full_prompt = f"{sys_prompt}\n\nUser request: {user_prompt}"
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=full_prompt
+        )
+        return response.text
+    except Exception as e:
+        return f"⚠️ Sorry, something went wrong talking to the AI: {e}"
+
 
 # ---------------- SIDEBAR ---------------- #
 
@@ -186,16 +197,13 @@ if st.button("Generate Proposal ❤️"):
     if partner != "":
 
         prompt = f"Write a {style} proposal for {partner}."
-        full_prompt = f"{sys_prompt}\n\nUser request: {prompt}"
 
         with st.spinner("Writing your proposal ❤️..."):
+            answer = ask_lovebot(prompt)
 
-            response = client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents=full_prompt
-                    )
-
-        st.success(response.text)
+        st.success(answer)
+    else:
+        st.warning("Please enter a partner name first.")
 
 # ---------------- CHAT HISTORY ---------------- #
 
@@ -232,14 +240,7 @@ if prompt:
         st.markdown(prompt)
 
     with st.spinner("LoveBot is thinking ❤️..."):
-
-        full_prompt = f"{sys_prompt}\n\nUser request: {prompt}"
-        response = client.models.generate_content(
-            model="gemini-3.5-flash-lite",
-            contents=full_prompt
-        )
-
-    answer = response.text
+        answer = ask_lovebot(prompt)
 
     with st.chat_message("assistant"):
         st.markdown(answer)
